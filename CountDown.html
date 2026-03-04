@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多功能倒计时 | Multi-Function Countdown</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', 'Microsoft YaHei', 'メイリオ', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: background 1s ease;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .countdown-container {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .title {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            transition: all 0.5s ease;
+        }
+
+        .countdown {
+            display: flex;
+            gap: 2rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .time-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 10px;
+            min-width: 100px;
+        }
+
+        .time-number {
+            font-size: 2.8rem;
+            font-weight: bold;
+        }
+
+        .time-label {
+            font-size: 1rem;
+            margin-top: 0.5rem;
+            opacity: 0.8;
+        }
+
+        .controls {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button, select, input {
+            padding: 0.8rem 1.2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        select, input {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        .end-message {
+            font-size: 1.8rem;
+            margin-top: 1rem;
+            color: #ffd700;
+            display: none;
+        }
+
+        /* 上传文件按钮样式 */
+        #uploadBg {
+            padding: 0.6rem;
+            max-width: 220px;
+        }
+
+        @media (max-width: 768px) {
+            .countdown-container {
+                padding: 2rem;
+            }
+            .countdown {
+                gap: 1rem;
+            }
+            .time-box {
+                padding: 1rem;
+                min-width: 80px;
+            }
+            .time-number {
+                font-size: 2rem;
+            }
+            .title {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="countdown-container">
+        <h1 class="title" id="mainTitle">距离目标时间还有</h1>
+        
+        <div class="countdown">
+            <div class="time-box">
+                <div class="time-number" id="days">00</div>
+                <div class="time-label" id="daysLabel">天</div>
+            </div>
+            <div class="time-box">
+                <div class="time-number" id="hours">00</div>
+                <div class="time-label" id="hoursLabel">时</div>
+            </div>
+            <div class="time-box">
+                <div class="time-number" id="minutes">00</div>
+                <div class="time-label" id="minutesLabel">分</div>
+            </div>
+            <div class="time-box">
+                <div class="time-number" id="seconds">00</div>
+                <div class="time-label" id="secondsLabel">秒</div>
+            </div>
+        </div>
+
+        <div class="end-message" id="endMessage">倒计时结束！</div>
+
+        <div class="controls">
+            <select id="languageSelect">
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+                <option value="jp">日本語</option>
+            </select>
+
+            <select id="backgroundSelect">
+                <option value="gradient1">渐变紫蓝</option>
+                <option value="gradient2">渐变青绿</option>
+                <option value="gradient3">渐变橙红</option>
+            </select>
+
+            <!-- 上传壁纸 -->
+            <input type="file" id="uploadBg" accept="image/*">
+
+            <input type="datetime-local" id="targetTimeInput">
+            
+            <button id="startBtn">开始倒计时</button>
+            <button id="pauseBtn">暂停</button>
+            <button id="resetBtn">重置</button>
+        </div>
+    </div>
+
+    <script>
+        const languageConfig = {
+            zh: {
+                title: "距离目标时间还有",
+                daysLabel: "天", hoursLabel: "时", minutesLabel: "分", secondsLabel: "秒",
+                endMessage: "倒计时结束！",
+                startBtn: "开始倒计时", pauseBtn: "暂停", resetBtn: "重置",
+                bg: { gradient1: "渐变紫蓝", gradient2: "渐变青绿", gradient3: "渐变橙红" }
+            },
+            en: {
+                title: "Time Remaining",
+                daysLabel: "Days", hoursLabel: "Hours", minutesLabel: "Minutes", secondsLabel: "Seconds",
+                endMessage: "Countdown Ended!",
+                startBtn: "Start", pauseBtn: "Pause", resetBtn: "Reset",
+                bg: { gradient1: "Purple-Blue", gradient2: "Cyan-Green", gradient3: "Orange-Red" }
+            },
+            jp: {
+                title: "目標時間まであと",
+                daysLabel: "日", hoursLabel: "時間", minutesLabel: "分", secondsLabel: "秒",
+                endMessage: "カウントダウン終了！",
+                startBtn: "開始", pauseBtn: "一時停止", resetBtn: "リセット",
+                bg: { gradient1: "紫青", gradient2: "シアングリーン", gradient3: "オレンジレッド" }
+            }
+        };
+
+        const backgroundConfig = {
+            gradient1: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            gradient2: "linear-gradient(135deg, #56ccf2 0%, #2f80ed 100%)",
+            gradient3: "linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)"
+        };
+
+        let countdownInterval;
+        let isPaused = false;
+        let targetTime = null;
+
+        const els = {
+            title: document.getElementById('mainTitle'),
+            days: document.getElementById('days'), hours: document.getElementById('hours'),
+            minutes: document.getElementById('minutes'), seconds: document.getElementById('seconds'),
+            daysLabel: document.getElementById('daysLabel'), hoursLabel: document.getElementById('hoursLabel'),
+            minutesLabel: document.getElementById('minutesLabel'), secondsLabel: document.getElementById('secondsLabel'),
+            endMessage: document.getElementById('endMessage'),
+            lang: document.getElementById('languageSelect'),
+            bgSelect: document.getElementById('backgroundSelect'),
+            uploadBg: document.getElementById('uploadBg'),
+            timeInput: document.getElementById('targetTimeInput'),
+            startBtn: document.getElementById('startBtn'),
+            pauseBtn: document.getElementById('pauseBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            body: document.body
+        };
+
+        function init() {
+            const def = new Date();
+            def.setHours(def.getHours() + 1);
+            els.timeInput.value = def.toISOString().slice(0, 16);
+
+            els.lang.addEventListener('change', changeLanguage);
+            els.bgSelect.addEventListener('change', changeBackground);
+            els.uploadBg.addEventListener('change', uploadBackground); // 上传图片
+            els.startBtn.addEventListener('click', start);
+            els.pauseBtn.addEventListener('click', togglePause);
+            els.resetBtn.addEventListener('click', reset);
+
+            changeLanguage();
+            changeBackground();
+        }
+
+        function changeLanguage() {
+            const l = els.lang.value;
+            const c = languageConfig[l];
+            els.title.textContent = c.title;
+            els.daysLabel.textContent = c.daysLabel;
+            els.hoursLabel.textContent = c.hoursLabel;
+            els.minutesLabel.textContent = c.minutesLabel;
+            els.secondsLabel.textContent = c.secondsLabel;
+            els.endMessage.textContent = c.endMessage;
+            els.startBtn.textContent = c.startBtn;
+            els.pauseBtn.textContent = c.pauseBtn;
+            els.resetBtn.textContent = c.resetBtn;
+
+            const opts = els.bgSelect.options;
+            opts[0].text = c.bg.gradient1;
+            opts[1].text = c.bg.gradient2;
+            opts[2].text = c.bg.gradient3;
+        }
+
+        function changeBackground() {
+            const val = els.bgSelect.value;
+            els.body.style.background = backgroundConfig[val];
+        }
+
+        // 上传本地图片作为背景
+        function uploadBackground(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            els.body.style.background = `url(${url}) center/cover no-repeat`;
+        }
+
+        function calc() {
+            if (isPaused || !targetTime) return;
+            const now = new Date().getTime();
+            const dis = targetTime - now;
+
+            const d = Math.floor(dis / (1000*60*60*24));
+            const h = Math.floor((dis % (1000*60*60*24)) / (1000*60*60));
+            const m = Math.floor((dis % (1000*60*60)) / (1000*60));
+            const s = Math.floor((dis % (1000*60)) / 1000);
+
+            els.days.textContent = String(d).padStart(2, '0');
+            els.hours.textContent = String(h).padStart(2, '0');
+            els.minutes.textContent = String(m).padStart(2, '0');
+            els.seconds.textContent = String(s).padStart(2, '0');
+
+            if (dis < 0) {
+                clearInterval(countdownInterval);
+                els.days.textContent = els.hours.textContent = els.minutes.textContent = els.seconds.textContent = '00';
+                els.endMessage.style.display = 'block';
+            } else {
+                els.endMessage.style.display = 'none';
+            }
+        }
+
+        function start() {
+            if (!els.timeInput.value) return alert("请选择目标时间");
+            clearInterval(countdownInterval);
+            targetTime = new Date(els.timeInput.value).getTime();
+            isPaused = false;
+            calc();
+            countdownInterval = setInterval(calc, 1000);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const l = els.lang.value;
+            els.pauseBtn.textContent = isPaused 
+                ? (l === 'zh' ? '继续' : l === 'en' ? 'Resume' : '再開')
+                : languageConfig[l].pauseBtn;
+        }
+
+        function reset() {
+            clearInterval(countdownInterval);
+            isPaused = false;
+            targetTime = null;
+            els.days.textContent = els.hours.textContent = els.minutes.textContent = els.seconds.textContent = '00';
+            els.endMessage.style.display = 'none';
+            changeLanguage();
+            const def = new Date();
+            def.setHours(def.getHours() + 1);
+            els.timeInput.value = def.toISOString().slice(0, 16);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
