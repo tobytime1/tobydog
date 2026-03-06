@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>便利贴 | Sticky Note | 付箋</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "ヒラギノ角ゴ ProN W3", sans-serif;
+            transition: all 0.2s ease;
+        }
+
+        :root {
+            --app-bg: #f5f7fa;
+            --note-bg-primary: #fff9e6;
+            --note-bg-secondary: #e6f7ff;
+            --note-bg-tertiary: #fdf2f8;
+            --text-color: #2d3748;
+            --accent: #4299e1;
+            --accent-hover: #3182ce;
+            --border: #e2e8f0;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .dark-mode {
+            --app-bg: #1a202c;
+            --note-bg-primary: #2d3748;
+            --note-bg-secondary: #283747;
+            --note-bg-tertiary: #3c2f44;
+            --text-color: #e2e8f0;
+            --accent: #63b3ed;
+            --accent-hover: #4299e1;
+            --border: #4a5568;
+            --shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        body {
+            background-color: var(--app-bg);
+            min-height: 100vh;
+            padding: 2rem;
+            overflow-x: hidden;
+        }
+
+        .app-header {
+            max-width: 1200px;
+            margin: 0 auto 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .lang-switcher {
+            display: flex;
+            gap: 0.6rem;
+        }
+
+        .lang-btn {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 20px;
+            background-color: var(--accent);
+            color: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .lang-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .theme-toggle {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: none;
+            background-color: var(--accent);
+            color: white;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-note-btn {
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            border: none;
+            background-color: var(--accent);
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .add-note-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .notes-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .note {
+            background-color: var(--note-bg-primary);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 1.2rem;
+            border: 1px solid var(--border);
+            position: relative;
+            min-height: 220px;
+            cursor: move;
+        }
+
+        .note.color-2 {
+            background-color: var(--note-bg-secondary);
+        }
+
+        .note.color-3 {
+            background-color: var(--note-bg-tertiary);
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+
+        .note-title {
+            font-size: 1.1rem;
+            color: var(--text-color);
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            width: 80%;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .note-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .note-action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background-color: rgba(0,0,0,0.05);
+            color: var(--text-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        .note-action-btn:hover {
+            background-color: rgba(0,0,0,0.1);
+        }
+
+        .note-content {
+            width: 100%;
+            min-height: 140px;
+            border: none;
+            background: transparent;
+            color: var(--text-color);
+            font-size: 0.95rem;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+
+        .note-footer {
+            position: absolute;
+            bottom: 1rem;
+            right: 1.2rem;
+            font-size: 0.75rem;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
+        @media (max-width: 768px) {
+            .app-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .notes-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <div class="controls">
+            <div class="lang-switcher">
+                <button class="lang-btn" data-lang="zh">中文</button>
+                <button class="lang-btn" data-lang="en">English</button>
+                <button class="lang-btn" data-lang="jp">日本語</button>
+            </div>
+            <button class="theme-toggle" id="theme-toggle">🌙</button>
+        </div>
+        <button class="add-note-btn" id="add-note">
+            ➕ <span data-key="addNote">新增便利贴</span>
+        </button>
+    </div>
+
+    <div class="notes-container" id="notes-container"></div>
+
+    <script>
+        const translations = {
+            zh: {
+                addNote: "新增便利贴",
+                noteTitle: "未命名笔记",
+                deleteNote: "删除笔记",
+                changeColor: "切换颜色",
+                confirmDelete: "确定要删除这条笔记吗？"
+            },
+            en: {
+                addNote: "Add Sticky Note",
+                noteTitle: "Untitled Note",
+                deleteNote: "Delete Note",
+                changeColor: "Change Color",
+                confirmDelete: "Are you sure to delete this note?"
+            },
+            jp: {
+                addNote: "付箋を追加",
+                noteTitle: "名前のないノート",
+                deleteNote: "ノートを削除",
+                changeColor: "色を変更",
+                confirmDelete: "このノートを削除してもよろしいですか？"
+            }
+        };
+
+        let currentLang = "zh";
+        let noteIdCounter = 0;
+        const noteColors = ["color-1", "color-2", "color-3"];
+
+        const themeToggle = document.getElementById("theme-toggle");
+        const addNoteBtn = document.getElementById("add-note");
+        const notesContainer = document.getElementById("notes-container");
+        const langButtons = document.querySelectorAll(".lang-btn");
+
+        function updateLanguage(lang) {
+            currentLang = lang;
+            document.querySelectorAll("[data-key]").forEach(el => {
+                const key = el.getAttribute("data-key");
+                el.textContent = translations[lang][key] || el.textContent;
+            });
+            document.documentElement.lang = lang === "jp" ? "ja" : lang;
+            document.querySelectorAll(".note-title[placeholder]").forEach(input => {
+                input.placeholder = translations[lang].noteTitle;
+            });
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle("dark-mode");
+            themeToggle.textContent = document.body.classList.contains("dark-mode") ? "☀️" : "🌙";
+        }
+
+        function generateNoteId() {
+            return `note-${Date.now()}-${noteIdCounter++}`;
+        }
+
+        function createNoteElement(noteData) {
+            const noteEl = document.createElement("div");
+            noteEl.className = `note ${noteData.color || noteColors[0]}`;
+            noteEl.dataset.id = noteData.id;
+            
+            noteEl.innerHTML = `
+                <div class="note-header">
+                    <input type="text" class="note-title" placeholder="${translations[currentLang].noteTitle}" value="${noteData.title || ''}">
+                    <div class="note-actions">
+                        <button class="note-action-btn color-btn" title="${translations[currentLang].changeColor}">🎨</button>
+                        <button class="note-action-btn delete-btn" title="${translations[currentLang].deleteNote}">🗑️</button>
+                    </div>
+                </div>
+                <textarea class="note-content">${noteData.content || ''}</textarea>
+                <div class="note-footer">${new Date(noteData.timestamp || Date.now()).toLocaleString(currentLang === "jp" ? "ja-JP" : currentLang === "en" ? "en-US" : "zh-CN")}</div>
+            `;
+
+            const titleInput = noteEl.querySelector(".note-title");
+            const contentInput = noteEl.querySelector(".note-content");
+            const colorBtn = noteEl.querySelector(".color-btn");
+            const deleteBtn = noteEl.querySelector(".delete-btn");
+            const footer = noteEl.querySelector(".note-footer");
+
+            titleInput.addEventListener("input", () => saveNoteData(noteEl.dataset.id, {
+                title: titleInput.value,
+                timestamp: Date.now()
+            }));
+
+            contentInput.addEventListener("input", () => saveNoteData(noteEl.dataset.id, {
+                content: contentInput.value,
+                timestamp: Date.now()
+            }));
+
+            colorBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const currentColor = noteEl.classList[1];
+                const currentIndex = noteColors.indexOf(currentColor);
+                const nextIndex = (currentIndex + 1) % noteColors.length;
+                noteEl.classList.remove(currentColor);
+                noteEl.classList.add(noteColors[nextIndex]);
+                saveNoteData(noteEl.dataset.id, { color: noteColors[nextIndex] });
+            });
+
+            deleteBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                if (confirm(translations[currentLang].confirmDelete)) {
+                    deleteNote(noteEl.dataset.id);
+                    noteEl.remove();
+                }
+            });
+
+            makeDraggable(noteEl);
+
+            return noteEl;
+        }
+
+        function makeDraggable(el) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            
+            el.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+                el.style.zIndex = 1000;
+                el.style.boxShadow = "0 8px 24px rgba(0,0,0,0.15)";
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                el.style.top = (el.offsetTop - pos2) + "px";
+                el.style.left = (el.offsetLeft - pos1) + "px";
+                el.style.position = "absolute";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+                el.style.zIndex = 1;
+                el.style.boxShadow = "";
+            }
+        }
+
+        function saveNoteData(noteId, data) {
+            const notes = JSON.parse(localStorage.getItem("stickyNotes") || "{}");
+            if (!notes[noteId]) {
+                notes[noteId] = { id: noteId, color: noteColors[0], timestamp: Date.now() };
+            }
+            Object.assign(notes[noteId], data);
+            localStorage.setItem("stickyNotes", JSON.stringify(notes));
+            
+            const noteEl = document.querySelector(`[data-id="${noteId}"]`);
+            if (noteEl && data.timestamp) {
+                noteEl.querySelector(".note-footer").textContent = new Date(data.timestamp).toLocaleString(currentLang === "jp" ? "ja-JP" : currentLang === "en" ? "en-US" : "zh-CN");
+            }
+        }
+
+        function deleteNote(noteId) {
+            const notes = JSON.parse(localStorage.getItem("stickyNotes") || "{}");
+            delete notes[noteId];
+            localStorage.setItem("stickyNotes", JSON.stringify(notes));
+        }
+
+        function addNewNote() {
+            const noteId = generateNoteId();
+            const noteEl = createNoteElement({ id: noteId, color: noteColors[0] });
+            notesContainer.appendChild(noteEl);
+            saveNoteData(noteId, { 
+                title: "", 
+                content: "", 
+                color: noteColors[0],
+                timestamp: Date.now()
+            });
+            noteEl.querySelector(".note-title").focus();
+        }
+
+        function loadSavedNotes() {
+            const notes = JSON.parse(localStorage.getItem("stickyNotes") || "{}");
+            Object.values(notes).forEach(noteData => {
+                const noteEl = createNoteElement(noteData);
+                notesContainer.appendChild(noteEl);
+            });
+
+            if (Object.keys(notes).length === 0) {
+                addNewNote();
+            }
+        }
+
+        langButtons.forEach(btn => {
+            btn.addEventListener("click", () => {
+                updateLanguage(btn.getAttribute("data-lang"));
+            });
+        });
+
+        themeToggle.addEventListener("click", toggleTheme);
+        addNoteBtn.addEventListener("click", addNewNote);
+
+        window.addEventListener("load", () => {
+            loadSavedNotes();
+            updateLanguage(currentLang);
+        });
+    </script>
+</body>
+</html>
