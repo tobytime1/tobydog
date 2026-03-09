@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisualMusic Pro - 音乐可视化</title>
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --bg: #0a0a0a;
+            --panel: rgba(255, 255, 255, 0.1);
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg);
+            color: white; font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+
+        /* 画布背景层 */
+        #canvas-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        #bg-image {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; filter: blur(20px) brightness(0.4);
+            z-index: 0; transition: 1s;
+        }
+
+        /* 侧边控制面板 */
+        .controls {
+            position: absolute; left: 20px; top: 20px; z-index: 10;
+            background: var(--panel); backdrop-filter: blur(15px);
+            padding: 25px; border-radius: 20px; width: 300px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            max-height: 90vh; overflow-y: auto;
+        }
+
+        h2 { margin: 0 0 20px 0; font-weight: 300; letter-spacing: 2px; }
+
+        .group { margin-bottom: 20px; }
+        label { display: block; font-size: 12px; margin-bottom: 8px; opacity: 0.8; }
+
+        input[type="file"], select, input[type="color"] {
+            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid #444;
+            color: white; padding: 8px; border-radius: 5px; cursor: pointer;
+        }
+
+        .btn-row { display: flex; gap: 10px; margin-top: 10px; }
+        button {
+            flex: 1; padding: 10px; border: none; border-radius: 8px;
+            cursor: pointer; transition: 0.3s; font-weight: bold;
+        }
+        .btn-play { background: linear-gradient(45deg, #00f2fe, #4facfe); color: white; }
+        .btn-record { background: #ff4b2b; color: white; }
+        .recording { animation: pulse 1.5s infinite; }
+
+        @keyframes pulse {
+            0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; }
+        }
+
+        /* 隐藏滚动条 */
+        .controls::-webkit-scrollbar { width: 5px; }
+        .controls::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body>
+
+    <img id="bg-image" src="" alt="">
+    <div id="canvas-container">
+        <canvas id="visualizer"></canvas>
+    </div>
+
+    <div class="controls">
+        <h2 id="t-title">VisualMusic</h2>
+        
+        <!-- 语言切换 -->
+        <div class="group">
+            <select id="lang-select">
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+                <option value="jp">日本語</option>
+            </select>
+        </div>
+
+        <!-- 文件导入 -->
+        <div class="group">
+            <label id="t-import-audio">导入音乐 (MP3/OGG)</label>
+            <input type="file" id="audio-input" accept="audio/*">
+        </div>
+        <div class="group">
+            <label id="t-import-cover">导入封面</label>
+            <input type="file" id="image-input" accept="image/*">
+        </div>
+
+        <!-- 视觉设置 -->
+        <div class="group">
+            <label id="t-mode">视觉模式</label>
+            <select id="mode-select">
+                <option value="bars">频谱竖条 (Bars)</option>
+                <option value="wave">平滑波浪 (Wave)</option>
+                <option value="circle">环形律动 (Circle)</option>
+            </select>
+        </div>
+
+        <div class="group">
+            <label id="t-color1">渐变起始颜色</label>
+            <input type="color" id="color1" value="#00f2fe">
+            <label id="t-color2" style="margin-top:10px">渐变结束颜色</label>
+            <input type="color" id="color2" value="#4facfe">
+        </div>
+
+        <!-- 按钮 -->
+        <div class="btn-row">
+            <button class="btn-play" id="btn-play">PLAY</button>
+            <button class="btn-record" id="btn-record">REC (MP4)</button>
+        </div>
+        
+        <p id="status" style="font-size: 11px; margin-top: 15px; color: #00f2fe;"></p>
+    </div>
+
+    <script>
+        // 1. 多语言配置
+        const i18n = {
+            zh: { title: "音乐可视化", importAudio: "导入音乐 (MP3/OGG)", importCover: "导入封面", mode: "视觉模式", color1: "渐变起始色", color2: "渐变结束色", rec: "导出 MP4", play: "播放/暂停" },
+            en: { title: "VisualMusic", importAudio: "Import Music", importCover: "Import Cover", mode: "Visual Mode", color1: "Gradient Start", color2: "Gradient End", rec: "Export MP4", play: "Play/Pause" },
+            jp: { title: "音楽可視化", importAudio: "音楽を入れる", importCover: "カバーを入れる", mode: "表示モード", color1: "開始色", color2: "終了色", rec: "録画保存", play: "再生/停止" }
+        };
+
+        // 2. 变量定义
+        let audioCtx, analyser, source, dataArray, animationId;
+        let isPlaying = false;
+        let isRecording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        const audioInput = document.getElementById('audio-input');
+        const imageInput = document.getElementById('image-input');
+        const bgImage = document.getElementById('bg-image');
+        const btnPlay = document.getElementById('btn-play');
+        const btnRecord = document.getElementById('btn-record');
+        const audioTrack = new Audio();
+
+        // 3. 初始化画布
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
+
+        // 4. 语言切换
+        document.getElementById('lang-select').onchange = (e) => {
+            const lang = i18n[e.target.value];
+            document.getElementById('t-title').innerText = lang.title;
+            document.getElementById('t-import-audio').innerText = lang.importAudio;
+            document.getElementById('t-import-cover').innerText = lang.importCover;
+            document.getElementById('t-mode').innerText = lang.mode;
+            document.getElementById('t-color1').innerText = lang.color1;
+            document.getElementById('t-color2').innerText = lang.color2;
+            btnRecord.innerText = lang.rec;
+        };
+
+        // 5. 音频处理逻辑
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            source = audioCtx.createMediaElementSource(audioTrack);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+        }
+
+        audioInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                audioTrack.src = URL.createObjectURL(file);
+                document.getElementById('status').innerText = "Loaded: " + file.name;
+            }
+        };
+
+        imageInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) bgImage.src = URL.createObjectURL(file);
+        };
+
+        btnPlay.onclick = () => {
+            if (!audioTrack.src) return alert("Please select music first!");
+            initAudio();
+            if (isPlaying) {
+                audioTrack.pause();
+                isPlaying = false;
+                btnPlay.innerText = "PLAY";
+            } else {
+                audioCtx.resume();
+                audioTrack.play();
+                isPlaying = true;
+                btnPlay.innerText = "PAUSE";
+                draw();
+            }
+        };
+
+        // 6. 绘图引擎
+        function draw() {
+            if (!isPlaying && !isRecording) return;
+            animationId = requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const mode = document.getElementById('mode-select').value;
+            const c1 = document.getElementById('color1').value;
+            const c2 = document.getElementById('color2').value;
+            
+            const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+            gradient.addColorStop(0, c1);
+            gradient.addColorStop(1, c2);
+            ctx.fillStyle = gradient;
+            ctx.strokeStyle = gradient;
+
+            if (mode === 'bars') {
+                const barWidth = (canvas.width / dataArray.length) * 2.5;
+                let x = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    const barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+                    x += barWidth;
+                }
+            } else if (mode === 'wave') {
+                ctx.beginPath();
+                ctx.lineWidth = 3;
+                const sliceWidth = canvas.width / dataArray.length;
+                let x = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = (v * canvas.height) / 2;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    x += sliceWidth;
+                }
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.stroke();
+            } else if (mode === 'circle') {
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const radius = 150;
+                ctx.beginPath();
+                ctx.lineWidth = 4;
+                for (let i = 0; i < dataArray.length; i++) {
+                    const angle = (i * 2 * Math.PI) / dataArray.length;
+                    const barHeight = (dataArray[i] / 255) * 100;
+                    const x = centerX + (radius + barHeight) * Math.cos(angle);
+                    const y = centerY + (radius + barHeight) * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+        }
+
+        // 7. 导出 MP4 功能
+        // 注意：浏览器原生导出通常为 WebM 格式，但它可以被大多数播放器识别，或者改名 mp4
+        btnRecord.onclick = () => {
+            if (isRecording) {
+                mediaRecorder.stop();
+                btnRecord.classList.remove('recording');
+                btnRecord.innerText = "REC (MP4)";
+                isRecording = false;
+            } else {
+                if (!isPlaying) return alert("Start playing first!");
+                
+                recordedChunks = [];
+                // 合并 Canvas 流和音频流
+                const canvasStream = canvas.captureStream(60); // 60 FPS
+                const audioDestination = audioCtx.createMediaStreamDestination();
+                source.connect(audioDestination);
+                
+                const combinedStream = new MediaStream([
+                    ...canvasStream.getVideoTracks(),
+                    ...audioDestination.stream.getAudioTracks()
+                ]);
+
+                mediaRecorder = new MediaRecorder(combinedStream, {
+                    mimeType: 'video/webm;codecs=vp9',
+                    videoBitsPerSecond: 5000000 // 5Mbps 高清
+                });
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'visual-music-export.webm';
+                    a.click();
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                btnRecord.classList.add('recording');
+                btnRecord.innerText = "STOP & SAVE";
+            }
+        };
+    </script>
+</body>
+</html>
