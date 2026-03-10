@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>24 Point Pro - Multi-language</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-color: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 550px;
+        }
+
+        /* 顶部语言切换 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .lang-switch button {
+            background: #eee;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 5px;
+            transition: 0.3s;
+        }
+
+        .lang-switch button.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* 配置区 */
+        .config-section {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .config-section input {
+            width: 50px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        /* 数字输入区 */
+        .number-inputs {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 1.5rem;
+        }
+
+        .number-inputs input {
+            width: 100%;
+            height: 60px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            border: 3px solid #eee;
+            border-radius: 12px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .number-inputs input:focus {
+            border-color: var(--primary-color);
+        }
+
+        /* 按钮布局 */
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            color: white;
+        }
+
+        .btn:active { transform: scale(0.98); }
+        .btn-random { background-color: var(--success-color); }
+        .btn-solve { background-color: var(--primary-color); }
+        .btn-show { background-color: var(--warning-color); }
+        .btn-clear { background-color: var(--danger-color); }
+
+        /* 结果显示 */
+        #result-container {
+            border-top: 2px solid #f0f0f0;
+            padding-top: 1.5rem;
+            min-height: 50px;
+        }
+
+        .result-list {
+            max-height: 250px;
+            overflow-y: auto;
+            text-align: left;
+        }
+
+        .solution-item {
+            background: #f9f9f9;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .empty-msg { color: #999; text-align: center; font-style: italic; }
+        
+        h1 { margin: 0; font-size: 1.4rem; color: var(--primary-color); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1 id="ui-title">24点计算器</h1>
+        <div class="lang-switch">
+            <button onclick="changeLang('zh')" id="lang-zh">中</button>
+            <button onclick="changeLang('en')" id="lang-en">EN</button>
+            <button onclick="changeLang('ja')" id="lang-ja">日</button>
+        </div>
+    </div>
+
+    <!-- 随机范围配置 -->
+    <div class="config-section">
+        <span id="ui-range-label">随机范围:</span>
+        <input type="number" id="min-range" value="1">
+        <span>-</span>
+        <input type="number" id="max-range" value="13">
+    </div>
+
+    <!-- 数字输入 -->
+    <div class="number-inputs">
+        <input type="number" id="n0" placeholder="?">
+        <input type="number" id="n1" placeholder="?">
+        <input type="number" id="n2" placeholder="?">
+        <input type="number" id="n3" placeholder="?">
+    </div>
+
+    <!-- 按钮操作区 -->
+    <div class="action-grid">
+        <button class="btn btn-random" onclick="doRandom()" id="ui-random">随机发牌</button>
+        <button class="btn btn-clear" onclick="doClear()" id="ui-clear">清空</button>
+        <button class="btn btn-solve" onclick="doSolve()" id="ui-solve">直接计算</button>
+        <button class="btn btn-show" onclick="doSolve()" id="ui-show">显示答案</button>
+    </div>
+
+    <!-- 结果显示区 -->
+    <div id="result-container">
+        <div id="result-list" class="result-list"></div>
+    </div>
+</div>
+
+<script>
+    const i18n = {
+        zh: {
+            title: "24点计算器 Pro",
+            range: "随机范围:",
+            random: "随机发牌",
+            clear: "清空",
+            solve: "直接计算",
+            show: "显示答案",
+            noSolution: "未找到可行解",
+            found: "找到 {n} 种解法:",
+            inputTip: "请输入四个数字"
+        },
+        en: {
+            title: "24-Point Solver Pro",
+            range: "Range:",
+            random: "Random Deal",
+            clear: "Clear",
+            solve: "Solve Now",
+            show: "Show Answer",
+            noSolution: "No solution found",
+            found: "Found {n} solutions:",
+            inputTip: "Please enter 4 numbers"
+        },
+        ja: {
+            title: "24点計算機 Pro",
+            range: "ランダム範囲:",
+            random: "ランダム",
+            clear: "クリア",
+            solve: "計算する",
+            show: "答えを表示",
+            noSolution: "解法が見つかりませんでした",
+            found: "{n} 個の解法:",
+            inputTip: "4つの数字を入力してください"
+        }
+    };
+
+    let currentLang = 'zh';
+
+    function changeLang(lang) {
+        currentLang = lang;
+        document.getElementById('ui-title').innerText = i18n[lang].title;
+        document.getElementById('ui-range-label').innerText = i18n[lang].range;
+        document.getElementById('ui-random').innerText = i18n[lang].random;
+        document.getElementById('ui-clear').innerText = i18n[lang].clear;
+        document.getElementById('ui-solve').innerText = i18n[lang].solve;
+        document.getElementById('ui-show').innerText = i18n[lang].show;
+        
+        document.querySelectorAll('.lang-switch button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.getElementById(`lang-${lang}`).classList.add('active');
+        doClear();
+    }
+
+    function doClear() {
+        for(let i=0; i<4; i++) document.getElementById('n'+i).value = '';
+        document.getElementById('result-list').innerHTML = '';
+    }
+
+    function doRandom() {
+        const min = parseInt(document.getElementById('min-range').value) || 1;
+        const max = parseInt(document.getElementById('max-range').value) || 13;
+        
+        for(let i=0; i<4; i++) {
+            const val = Math.floor(Math.random() * (max - min + 1)) + min;
+            document.getElementById('n'+i).value = val;
+        }
+        // 随机发牌后不显示答案，清空结果区
+        document.getElementById('result-list').innerHTML = `<div class="empty-msg">数字已更新，请思考...</div>`;
+    }
+
+    function doSolve() {
+        const nums = [];
+        for(let i=0; i<4; i++) {
+            const val = parseFloat(document.getElementById('n'+i).value);
+            if(isNaN(val)) {
+                alert(i18n[currentLang].inputTip);
+                return;
+            }
+            nums.push(val);
+        }
+
+        const solutions = solve24(nums);
+        renderResults(solutions);
+    }
+
+    function renderResults(solutions) {
+        const container = document.getElementById('result-list');
+        if(solutions.length === 0) {
+            container.innerHTML = `<div class="empty-msg">${i18n[currentLang].noSolution}</div>`;
+            return;
+        }
+
+        let html = `<div style="margin-bottom:10px; font-weight:bold; color:var(--primary-color);">
+            ${i18n[currentLang].found.replace('{n}', solutions.length)}
+        </div>`;
+        
+        solutions.forEach(s => {
+            html += `<div class="solution-item"><span>${s}</span><span>= 24</span></div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    // --- 核心算法 ---
+    function solve24(nums) {
+        const results = new Set();
+        const ops = ['+', '-', '*', '/'];
+
+        function backtrack(arr) {
+            if (arr.length === 1) {
+                if (Math.abs(arr[0].val - 24) < 0.0001) {
+                    results.add(arr[0].str);
+                }
+                return;
+            }
+
+            for (let i = 0; i < arr.length; i++) {
+                for (let j = 0; j < arr.length; j++) {
+                    if (i === j) continue;
+
+                    const remaining = [];
+                    for (let k = 0; k < arr.length; k++) {
+                        if (k !== i && k !== j) remaining.push(arr[k]);
+                    }
+
+                    const a = arr[i];
+                    const b = arr[j];
+
+                    ops.forEach(op => {
+                        let resVal, resStr;
+                        if (op === '+') {
+                            resVal = a.val + b.val;
+                            resStr = `(${a.str}+${b.str})`;
+                        } else if (op === '-') {
+                            resVal = a.val - b.val;
+                            resStr = `(${a.str}-${b.str})`;
+                        } else if (op === '*') {
+                            resVal = a.val * b.val;
+                            resStr = `(${a.str}*${b.str})`;
+                        } else if (op === '/') {
+                            if (Math.abs(b.val) < 0.0001) return;
+                            resVal = a.val / b.val;
+                            resStr = `(${a.str}/${b.str})`;
+                        }
+                        backtrack([...remaining, { val: resVal, str: resStr }]);
+                    });
+                }
+            }
+        }
+
+        const initial = nums.map(n => ({ val: n, str: n.toString() }));
+        backtrack(initial);
+
+        // 格式化输出：去除最外层括号
+        return Array.from(results).map(s => {
+            if (s.startsWith('(') && s.endsWith(')')) {
+                return s.substring(1, s.length - 1);
+            }
+            return s;
+        });
+    }
+
+    // 默认启动中文
+    changeLang('zh');
+</script>
+
+</body>
+</html>
