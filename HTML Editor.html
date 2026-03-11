@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fresh Code Editor - 极简代码编辑器</title>
+    <!-- 引入 Monaco Editor 的样式 -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css">
+    <style>
+        :root {
+            --primary-color: #00b894;
+            --bg-color: #f5f6fa;
+            --header-bg: rgba(255, 255, 255, 0.9);
+            --text-color: #2d3436;
+            --shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #2d3436;
+            --header-bg: rgba(45, 52, 54, 0.9);
+            --text-color: #dfe6e9;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            background-size: cover;
+            background-position: center;
+            transition: background 0.3s;
+        }
+
+        /* 顶部导航栏 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: var(--header-bg);
+            backdrop-filter: blur(10px);
+            box-shadow: var(--shadow);
+            z-index: 100;
+            position: relative;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button, select, label {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* 编辑器容器 */
+        #editor-container {
+            height: calc(100vh - 60px);
+            width: 100%;
+        }
+
+        /* 预览层 */
+        #preview-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 200;
+            display: none;
+        }
+
+        #preview-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* 右上角全屏按钮 */
+        #fullscreen-btn {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            z-index: 150;
+        }
+
+        /* 左下角预览按钮 */
+        #preview-toggle-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 150;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* 退出预览按钮 */
+        #exit-preview {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 201;
+            padding: 10px 20px;
+            background: #ff7675;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+
+        /* 隐藏逻辑 */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body data-theme="light">
+
+    <header id="main-header">
+        <div class="logo">FRESH EDITOR</div>
+        <div class="controls">
+            <!-- 语言切换 -->
+            <select id="lang-select">
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+                <option value="jp">日本語</option>
+            </select>
+            
+            <!-- 字体大小 -->
+            <select id="font-size">
+                <option value="14">14px</option>
+                <option value="16" selected>16px</option>
+                <option value="18">18px</option>
+                <option value="20">20px</option>
+            </select>
+
+            <!-- 打开文件 -->
+            <button onclick="document.getElementById('file-input').click()" id="btn-open">打开文件</button>
+            <input type="file" id="file-input" accept=".html,.txt" style="display:none">
+
+            <!-- 上传背景 -->
+            <button onclick="document.getElementById('bg-input').click()" id="btn-bg">上传背景</button>
+            <input type="file" id="bg-input" accept="image/*" style="display:none">
+
+            <!-- 主题切换 -->
+            <button id="theme-toggle">🌙</button>
+        </div>
+    </header>
+
+    <!-- 编辑器区域 -->
+    <div id="editor-container"></div>
+
+    <!-- 预览区域 -->
+    <div id="preview-layer">
+        <iframe id="preview-frame"></iframe>
+        <button id="exit-preview">退出预览</button>
+    </div>
+
+    <!-- 浮动控制按钮 -->
+    <button id="preview-toggle-btn">预览 HTML</button>
+    <button id="fullscreen-btn">全屏模式</button>
+
+    <!-- 加载 Monaco Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script>
+        let editor;
+        const i18n = {
+            zh: {
+                open: "打开文件",
+                bg: "上传背景",
+                preview: "预览 HTML",
+                exit: "退出预览",
+                fullscreen: "全屏模式",
+                welcome: "<!-- 欢迎使用 Fresh Editor -->\n<div style='text-align:center; margin-top:50px;'>\n  <h1 style='color:#00b894;'>你好, 世界!</h1>\n  <p>在这里编写你的 HTML 代码...</p>\n</div>"
+            },
+            en: {
+                open: "Open File",
+                bg: "Upload BG",
+                preview: "Preview HTML",
+                exit: "Exit Preview",
+                fullscreen: "Fullscreen",
+                welcome: "<!-- Welcome to Fresh Editor -->\n<div style='text-align:center; margin-top:50px;'>\n  <h1 style='color:#00b894;'>Hello World!</h1>\n  <p>Write your HTML here...</p>\n</div>"
+            },
+            jp: {
+                open: "ファイルを開く",
+                bg: "背景アップロード",
+                preview: "プレビュー",
+                exit: "プレビュー終了",
+                fullscreen: "フルスクリーン",
+                welcome: "<!-- Fresh Editor へようこそ -->\n<div style='text-align:center; margin-top:50px;'>\n  <h1 style='color:#00b894;'>こんにちは世界！</h1>\n  <p>ここにHTMLを記述してください...</p>\n</div>"
+            }
+        };
+
+        // 初始化编辑器
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('editor-container'), {
+                value: i18n.zh.welcome,
+                language: 'html',
+                theme: 'vs-light',
+                automaticLayout: true,
+                fontSize: 16,
+                minimap: { enabled: true },
+                transparentBackground: true
+            });
+        });
+
+        // 多语言切换
+        document.getElementById('lang-select').addEventListener('change', (e) => {
+            const lang = e.target.value;
+            document.getElementById('btn-open').innerText = i18n[lang].open;
+            document.getElementById('btn-bg').innerText = i18n[lang].bg;
+            document.getElementById('preview-toggle-btn').innerText = i18n[lang].preview;
+            document.getElementById('exit-preview').innerText = i18n[lang].exit;
+            document.getElementById('fullscreen-btn').innerText = i18n[lang].fullscreen;
+        });
+
+        // 字体大小
+        document.getElementById('font-size').addEventListener('change', (e) => {
+            editor.updateOptions({ fontSize: parseInt(e.target.value) });
+        });
+
+        // 主题切换
+        const themeBtn = document.getElementById('theme-toggle');
+        themeBtn.addEventListener('click', () => {
+            const body = document.body;
+            if (body.getAttribute('data-theme') === 'light') {
+                body.setAttribute('data-theme', 'dark');
+                monaco.editor.setTheme('vs-dark');
+                themeBtn.innerText = '☀️';
+            } else {
+                body.setAttribute('data-theme', 'light');
+                monaco.editor.setTheme('vs-light');
+                themeBtn.innerText = '🌙';
+            }
+        });
+
+        // 上传背景
+        document.getElementById('bg-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.body.style.backgroundImage = `url(${event.target.result})`;
+                    // 使编辑器背景半透明以便看到背景图
+                    const styles = document.createElement('style');
+                    styles.innerHTML = `.monaco-editor, .monaco-editor-background, .monaco-editor .margin { background-color: rgba(255,255,255,0.7) !important; } [data-theme="dark"] .monaco-editor, [data-theme="dark"] .monaco-editor-background { background-color: rgba(30,30,30,0.7) !important; }`;
+                    document.head.appendChild(styles);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 打开 HTML 文件
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                editor.setValue(event.target.result);
+            };
+            reader.readAsText(file);
+        });
+
+        // 预览逻辑
+        const previewLayer = document.getElementById('preview-layer');
+        const previewFrame = document.getElementById('preview-frame');
+        const previewBtn = document.getElementById('preview-toggle-btn');
+        const exitPreviewBtn = document.getElementById('exit-preview');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+        previewBtn.addEventListener('click', () => {
+            const code = editor.getValue();
+            previewFrame.srcdoc = code;
+            previewLayer.style.display = 'block';
+            exitPreviewBtn.style.display = 'block';
+            previewBtn.classList.add('hidden');
+        });
+
+        exitPreviewBtn.addEventListener('click', () => {
+            previewLayer.style.display = 'none';
+            exitPreviewBtn.style.display = 'none';
+            previewBtn.classList.remove('hidden');
+        });
+
+        // 全屏逻辑
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                fullscreenBtn.classList.add('hidden');
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                fullscreenBtn.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
